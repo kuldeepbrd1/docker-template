@@ -1,0 +1,20 @@
+## Devcontainer
+.devcontainer
+
+## Docker
+**/*.Dockerfile
+.docker/docker*
+**/.dockerignore
+
+## Git
+**/.git
+**/.gitignore
+
+## Python
+*.pyc
+**/__pycache__/**
+**/*.egg-info
+
+## Custom
+**/checkpoints
+**/logs

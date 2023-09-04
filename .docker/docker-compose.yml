@@ -1,0 +1,67 @@
+version: '1.0'
+# Docker Compose file multi-container fun
+# I've used ROS use-case as baseline here
+
+# Network: Define a `ros` network using bridge network driver
+# Bridge network driver forwards traffic on different networks in containers
+# to a single software bridge network on the host
+networks:
+    ros:
+        driver: bridge
+
+# Services are individual parts of the application, each running in its own container
+services:
+
+    # ROS Master and Zerog bringup
+    my-robot-interface:
+        image: manufacturer/expensive_robot:unmaintained
+        command: "roslaunch robot_bringup robot_moveit.launch"
+        environment:
+            DISPLAY: $DISPLAY
+            QT_X11_NO_MITSHM: "1"
+        networks:
+            - ros
+        devices:
+            - "/dev/dri:/dev/dri"
+        volumes:
+            - "/tmp/.X11-unix/:/tmp/.X11-unix/"
+        restart: always
+        privileged: false
+
+    # Gripper server
+    gripper-server:
+        image: kuldeepbrd1/software-unavailable-gripper:discontinued
+        command: "roslaunch discontinued_gripper service.launch"
+        networks:
+            - ros
+        restart: always
+        privileged: false
+        depends_on:
+            my-robot-interface:
+                condition: service_started
+
+    # Vision Server
+    vision-server:
+        image: kuldeepbrd1/fancy-ml-stack:latest
+        command: "roslaunch fancy_pkg_rospy_wrapper server.launch"
+        environment:
+            DISPLAY: $DISPLAY
+            QT_X11_NO_MITSHM: "1"
+        networks:
+            - ros
+        devices:
+            - "/dev/dri:/dev/dri"
+        volumes:
+            - "/tmp/.X11-unix/:/tmp/.X11-unix/"
+        deploy:
+            resources:
+                reservations:
+                    devices:
+                        - driver: nvidia
+                          device_ids: [ '0' ]
+                          capabilities: [ gpu ]
+        depends_on:
+            my-robot-interface:
+                condition: service_started
+        restart: always
+        privileged: false
