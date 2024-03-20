@@ -31,20 +31,21 @@ SHELL ["/bin/bash", "-c"]
 
 # CUSTOM_SSL_CERTS: If you have custom SSL certificates, store them in .docker/
 # These are copied to /usr/local/share/ca-certificates/
-ENV INSTALL_CUSTOM_CERT=false
-ENV CERT_FILE=""
 COPY .docker/*.crt /usr/local/share/ca-certificates/
 
 # CUSTOM_SSL_CERTS: If there was a custom cert file, install it
 # and set environment variable INSTALL_CUSTOM_CERT=true, which can be
 # used for setting custom SSL certs in other applications
 RUN if ls /usr/local/share/ca-certificates/*.crt >/dev/null 2>&1; then \
-    echo "INSTALL_CUSTOM_CERT=true" >> /etc/environment; \
-    export CERT_FILE=$(ls /usr/local/share/ca-certificates/*.crt | head -n 1); \
+    echo "export INSTALL_CUSTOM_CERT=true;" >> /etc/environment; \
+    echo "export CERT_FILE=$(ls /usr/local/share/ca-certificates/*.crt | head -n 1)" >> /etc/environment; \
     apt-get update; \
     apt-get -y install --no-install-recommends ca-certificates ; \
     update-ca-certificates ; \
     rm -rf /var/lib/apt/lists/*; \
+    else \
+    echo "export INSTALL_CUSTOM_CERT=false;" >> /etc/environment; \
+    echo "export CERT_FILE=" >> /etc/environment; \
     fi
 
 
@@ -110,12 +111,13 @@ RUN echo "WS_DIR=${WS_DIR}" >> ~/.bashrc \
     && echo "alias source-devel="source "${WS_DIR}/devel/setup.bash""" >> ~/.bashrc
 
 # Global CA Cert config for 3rd part apps, if custom cert file exists
-RUN if [ "${INSTALL_CUSTOM_CERT}" = "true" ]; then \
-    CERT_PATH="$(python3 -m certifi)" && \
-    cp "${CERT_FILE}" "$(openssl version -d | cut -f2 -d \")/certs" && \
-    cat "${CERT_FILE}" >> "${CERT_PATH}" && \
-    echo "export CERT_PATH=\${CERT_PATH}" >> ~/.bashrc && \
-    echo "export SSL_CERT_FILE=\${CERT_PATH}"  >> ~/.bashrc && \
+RUN source /etc/environment \
+    && if [ "${INSTALL_CUSTOM_CERT}" = "true" ]; then \
+    CERT_PATH="$($MINICONDA_PATH/bin/python -m certifi)"; \
+    cp "${CERT_FILE}" "$(openssl version -d | cut -f2 -d \")/certs"; \
+    cat "${CERT_FILE}" >> "${CERT_PATH}"; \
+    echo "export CERT_PATH=\${CERT_PATH}" >> ~/.bashrc; \
+    echo "export SSL_CERT_FILE=\${CERT_PATH}"  >> ~/.bashrc; \
     echo "export REQUESTS_CA_BUNDLE=\${CERT_PATH}"  >> ~/.bashrc; \
     fi
 
